@@ -17,9 +17,9 @@
   justify-content: space-between;
   padding: 0.45rem 0.6rem;
   border-radius: 6px 6px 0 0;
-  border: var(--bs-btn-border-width) solid var(--bs-btn-border-color);
-  background-color: var(--bs-btn-bg, #3b82f6);
-  color: var(--bs-btn-color);
+  border: var(--bs-btn-border-width) solid var(--bs-primary-border-subtle);
+  background-color: var(--bs-primary-bg-subtle, #3b82f6);
+  color: var(--bs-primary-border-subtle);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;

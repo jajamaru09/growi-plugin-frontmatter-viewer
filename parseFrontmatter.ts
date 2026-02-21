@@ -104,12 +104,21 @@ function parseScalar(value: string): unknown {
 // ================================================================
 // GROWI API 経由でページのフロントマターを取得
 // ================================================================
+
+/**
+ * GROWI の URL 形式: https://sample.com/<pageId>
+ * window.location.pathname → "/<pageId>" なので先頭の "/" を除去して pageId を得る
+ */
 export async function fetchPageFrontmatter(pathname: string): Promise<ParsedFrontmatter | null> {
+  // "/xxxxxxxxxx" → "xxxxxxxxxx"
+  const pageId = pathname.replace(/^\//, '');
+  if (!pageId) return null;
+
   // GROWI のバージョンによって API プレフィックスが異なる
   // v6 以前: /api/v3/   v7 以降: /_api/v3/
   const API_CANDIDATES = [
-    `/_api/v3/page?path=${encodeURIComponent(pathname)}`,
-    `/api/v3/page?path=${encodeURIComponent(pathname)}`,
+    `/_api/v3/page?pageId=${encodeURIComponent(pageId)}`,
+    `/api/v3/page?pageId=${encodeURIComponent(pageId)}`,
   ];
 
   for (const url of API_CANDIDATES) {
@@ -124,8 +133,8 @@ export async function fetchPageFrontmatter(pathname: string): Promise<ParsedFron
       const json = await res.json();
 
       // GROWI v3 API のレスポンス構造は複数パターンあり
-      //   パターン1: { page: { revision: { body } } }        (v6)
-      //   パターン2: { data: { page: { revision: { body } } } } (一部版)
+      //   パターン1: { page: { revision: { body } } }
+      //   パターン2: { data: { page: { revision: { body } } } }
       const body: string =
         json?.page?.revision?.body ??
         json?.data?.page?.revision?.body ??

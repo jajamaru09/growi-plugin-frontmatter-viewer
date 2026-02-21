@@ -105,32 +105,71 @@ function parseScalar(value: string): unknown {
 // GROWI API 経由でページのフロントマターを取得
 // ================================================================
 
+const API_PREFIXES = ['/_api/v3', '/api/v3'] as const;
+
+/**
+ * JSON レスポンスを fetch して content-type チェック付きで返す。
+ * JSON でなければ null を返す。
+ */
+async function fetchJson(url: string): Promise<unknown | null> {
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('application/json')) return null;
+  return res.json();
+}
+
+/**
+ * 特定リビジョンの body を取得する
+ *
+ * API: GET /_api/v3/pages/{pageId}/revisions/{revisionId}
+ * レスポンス: { revision: { body: string, ... } } または
+ *             { data: { revision: { body: string, ... } } }
+ */
+async function fetchRevisionBody(pageId: string, revisionId: string): Promise<string | null> {
+  for (const prefix of API_PREFIXES) {
+    const url = `${prefix}/pages/${encodeURIComponent(pageId)}/revisions/${encodeURIComponent(revisionId)}`;
+    try {
+      const json = await fetchJson(url) as any;
+      const body: string =
+        json?.revision?.body ??
+        json?.data?.revision?.body ??
+        '';
+      if (body) return body;
+    } catch (e) {
+      console.warn(`[growi-plugin-frontmatter] revision API fetch failed (${url}):`, e);
+    }
+  }
+  return null;
+}
+
 /**
  * GROWI の URL 形式: https://sample.com/<pageId>
  * window.location.pathname → "/<pageId>" なので先頭の "/" を除去して pageId を得る
+ *
+ * revisionId が指定された場合はその時点のリビジョン body を取得する
  */
-export async function fetchPageFrontmatter(pathname: string): Promise<ParsedFrontmatter | null> {
-  // "/xxxxxxxxxx" → "xxxxxxxxxx"
+export async function fetchPageFrontmatter(
+  pathname: string,
+  revisionId?: string,
+): Promise<ParsedFrontmatter | null> {
   const pageId = pathname.replace(/^\//, '');
   if (!pageId) return null;
 
+  // リビジョン指定あり → 専用 API を使う
+  if (revisionId) {
+    const body = await fetchRevisionBody(pageId, revisionId);
+    if (body == null) return null;
+    return extractFrontmatter(body);
+  }
+
+  // 通常ページ取得
   // GROWI のバージョンによって API プレフィックスが異なる
   // v6 以前: /api/v3/   v7 以降: /_api/v3/
-  const API_CANDIDATES = [
-    `/_api/v3/page?pageId=${encodeURIComponent(pageId)}`,
-    `/api/v3/page?pageId=${encodeURIComponent(pageId)}`,
-  ];
-
-  for (const url of API_CANDIDATES) {
+  for (const prefix of API_PREFIXES) {
+    const url = `${prefix}/page?pageId=${encodeURIComponent(pageId)}`;
     try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-
-      // HTML が返ってきた場合（404ページ等）は JSON パースしない
-      const contentType = res.headers.get('content-type') ?? '';
-      if (!contentType.includes('application/json')) continue;
-
-      const json = await res.json();
+      const json = await fetchJson(url) as any;
 
       // GROWI v3 API のレスポンス構造は複数パターンあり
       //   パターン1: { page: { revision: { body } } }
@@ -140,7 +179,7 @@ export async function fetchPageFrontmatter(pathname: string): Promise<ParsedFron
         json?.data?.page?.revision?.body ??
         '';
 
-      if (!body) return null;
+      if (!body) continue;
       return extractFrontmatter(body);
     } catch (e) {
       console.warn(`[growi-plugin-frontmatter] API fetch failed (${url}):`, e);

@@ -77,7 +77,10 @@ async function updatePanel(pathname: string): Promise<void> {
     root = createRoot(mountTarget);
   }
 
-  const parsed = await fetchPageFrontmatter(pathname);
+  // ?revisionId=<id> が付いていればそのリビジョンのフロントマターを取得する
+  const revisionId = new URLSearchParams(window.location.search).get('revisionId') ?? undefined;
+
+  const parsed = await fetchPageFrontmatter(pathname, revisionId);
   const hasData = parsed != null && Object.keys(parsed.data).length > 0;
 
   if (!hasData) {
@@ -107,6 +110,9 @@ async function updatePanel(pathname: string): Promise<void> {
 //
 // pageId = MongoDB ObjectId = 24文字の16進数
 // pageId URLになってから API を叩く
+//
+// リビジョン表示時: /xxxxxxxxxx?revisionId=yyyyyy の形式
+// この場合は pathname がすでに pageId 形式なので即座に返る
 // ================================================================
 const PAGE_ID_PATTERN = /^\/[0-9a-f]{24}$/i;
 
@@ -128,15 +134,15 @@ async function waitForPageId(maxWaitMs = 1500): Promise<string> {
 // ================================================================
 // SPA ナビゲーション（URL変化）の監視
 // Next.js ベースのGROWIはhistory APIでページを切り替えるため、
-// pushState / replaceState をラップして pathname の変化を検知する
+// pushState / replaceState をラップして pathname / search の変化を検知する
 // ================================================================
 function watchUrlChanges(callback: () => void): () => void {
-  let currentPathname = window.location.pathname;
+  let currentHref = window.location.pathname + window.location.search;
 
   const handleChange = () => {
-    const next = window.location.pathname;
-    if (next !== currentPathname) {
-      currentPathname = next;
+    const next = window.location.pathname + window.location.search;
+    if (next !== currentHref) {
+      currentHref = next;
       callback();
     }
   };

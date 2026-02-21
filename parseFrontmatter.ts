@@ -105,18 +105,38 @@ function parseScalar(value: string): unknown {
 // GROWI API 経由でページのフロントマターを取得
 // ================================================================
 export async function fetchPageFrontmatter(pathname: string): Promise<ParsedFrontmatter | null> {
-  try {
-    // GROWI REST API でページデータ取得
-    const res = await fetch(`/api/v3/page?path=${encodeURIComponent(pathname)}`);
-    if (!res.ok) return null;
+  // GROWI のバージョンによって API プレフィックスが異なる
+  // v6 以前: /api/v3/   v7 以降: /_api/v3/
+  const API_CANDIDATES = [
+    `/_api/v3/page?path=${encodeURIComponent(pathname)}`,
+    `/api/v3/page?path=${encodeURIComponent(pathname)}`,
+  ];
 
-    const json = await res.json();
-    const body: string = json?.data?.page?.revision?.body ?? '';
-    if (!body) return null;
+  for (const url of API_CANDIDATES) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
 
-    return extractFrontmatter(body);
-  } catch (e) {
-    console.warn('[growi-plugin-frontmatter] API fetch failed:', e);
-    return null;
+      // HTML が返ってきた場合（404ページ等）は JSON パースしない
+      const contentType = res.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) continue;
+
+      const json = await res.json();
+
+      // GROWI v3 API のレスポンス構造は複数パターンあり
+      //   パターン1: { page: { revision: { body } } }        (v6)
+      //   パターン2: { data: { page: { revision: { body } } } } (一部版)
+      const body: string =
+        json?.page?.revision?.body ??
+        json?.data?.page?.revision?.body ??
+        '';
+
+      if (!body) return null;
+      return extractFrontmatter(body);
+    } catch (e) {
+      console.warn(`[growi-plugin-frontmatter] API fetch failed (${url}):`, e);
+    }
   }
+
+  return null;
 }

@@ -30,59 +30,111 @@ export function extractFrontmatter(markdown: string): ParsedFrontmatter | null {
 }
 
 /**
- * 簡易YAMLパーサー
- * 本番では js-yaml などを使うことを推奨するが、
- * モック段階では外部依存を減らすため自前実装
+ * 簡易YAMLパーサー（インデント再帰対応）
  *
  * 対応フォーマット：
- *   - key: value (文字列・数値・真偽値)
- *   - key: [item1, item2]  (インラインリスト)
- *   - key:                 (マルチラインリスト、- item形式)
- *     - item1
- *     - item2
+ *   - key: value              (文字列・数値・真偽値)
+ *   - key: [item1, item2]     (インラインリスト)
+ *   - key:                    (マルチラインリスト)
+ *       - item1
+ *   - key:                    (ネストオブジェクト)
+ *       nested: value
  */
 export function parseSimpleYaml(yaml: string): Record<string, unknown> {
+  const [result] = parseYamlBlock(yaml.split('\n'), 0, 0);
+  return result;
+}
+
+function getIndent(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+/**
+ * 指定インデントレベルのブロックを再帰的にパースする。
+ * @returns [パース結果オブジェクト, 次の行インデックス]
+ */
+function parseYamlBlock(
+  lines: string[],
+  startIdx: number,
+  baseIndent: number,
+): [Record<string, unknown>, number] {
   const result: Record<string, unknown> = {};
-  const lines = yaml.split('\n');
-  let i = 0;
+  let i = startIdx;
 
   while (i < lines.length) {
     const line = lines[i];
+    const trimmed = line.trim();
 
-    // コメント・空行スキップ
-    if (!line.trim() || line.trim().startsWith('#')) {
-      i++;
-      continue;
-    }
+    // 空行・コメントスキップ
+    if (!trimmed || trimmed.startsWith('#')) { i++; continue; }
 
-    const colonIdx = line.indexOf(':');
+    const indent = getIndent(line);
+
+    // 親ブロックより浅い → 呼び出し元に返す
+    if (indent < baseIndent) break;
+    // 想定より深い（前のキーが処理済みなら来ないはず）→ スキップ
+    if (indent > baseIndent) { i++; continue; }
+
+    const colonIdx = trimmed.indexOf(':');
     if (colonIdx === -1) { i++; continue; }
 
-    const key = line.slice(0, colonIdx).trim();
-    const rawValue = line.slice(colonIdx + 1).trim();
+    const key = trimmed.slice(0, colonIdx).trim();
+    const rawValue = trimmed.slice(colonIdx + 1).trim();
 
     if (rawValue) {
       // インラインリスト: key: [a, b, c]
       if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
-        const items = rawValue.slice(1, -1).split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''));
+        const items = rawValue
+          .slice(1, -1)
+          .split(',')
+          .map(s => s.trim().replace(/^['"]|['"]$/g, ''));
         result[key] = items;
       } else {
         result[key] = parseScalar(rawValue);
       }
       i++;
     } else {
-      // 値が空の場合 → 次行以降の - item をリストとして収集
-      const list: string[] = [];
+      // 値なし → 子ブロックを調べる
       i++;
-      while (i < lines.length && lines[i].match(/^\s+-\s+/)) {
-        list.push(lines[i].replace(/^\s+-\s+/, '').trim().replace(/^['"]|['"]$/g, ''));
-        i++;
+      // 空行スキップ
+      while (i < lines.length && !lines[i].trim()) i++;
+
+      if (i >= lines.length) { result[key] = null; continue; }
+
+      const childIndent = getIndent(lines[i]);
+
+      if (childIndent <= baseIndent) {
+        // 子ブロックなし
+        result[key] = null;
+        continue;
       }
-      result[key] = list.length > 0 ? list : null;
+
+      if (lines[i].trim().startsWith('- ')) {
+        // マルチラインリスト
+        const list: string[] = [];
+        while (i < lines.length) {
+          const l = lines[i];
+          const lt = l.trim();
+          if (!lt) { i++; continue; }
+          if (getIndent(l) < childIndent) break;
+          if (lt.startsWith('- ')) {
+            list.push(lt.slice(2).trim().replace(/^['"]|['"]$/g, ''));
+            i++;
+          } else {
+            break;
+          }
+        }
+        result[key] = list;
+      } else {
+        // ネストオブジェクト（再帰）
+        const [nested, nextI] = parseYamlBlock(lines, i, childIndent);
+        result[key] = nested;
+        i = nextI;
+      }
     }
   }
 
-  return result;
+  return [result, i];
 }
 
 function parseScalar(value: string): unknown {

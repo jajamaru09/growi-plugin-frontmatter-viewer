@@ -191,10 +191,23 @@ const activate = (): void => {
   });
 
   // SPA ページ遷移を監視
-  // URL変化を検知したら、pageId URLへの書き換えを待ってからパネル更新
   cleanupUrlWatch = watchUrlChanges(() => {
-    waitForPageId().then(pathname => {
+    const pathname = window.location.pathname;
+
+    if (!PAGE_ID_PATTERN.test(pathname)) {
+      // 非 pageId URL（管理画面・検索等）→ waitForPageId を挟まず即座にパネルを隠す
+      // waitForPageId を使うと 1500ms タイムアウトするまで処理が遅れ、
+      // その間に余分な API コールが発生する可能性がある
       updatePanel(pathname).catch(e => {
+        console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
+      });
+      return;
+    }
+
+    // pageId URL になっていない一時的なパスの場合、
+    // GROWI が replaceState で pageId URL に置き換えるまで待機する
+    waitForPageId().then(updatedPathname => {
+      updatePanel(updatedPathname).catch(e => {
         console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
       });
     });

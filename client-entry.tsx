@@ -99,18 +99,45 @@ async function updatePanel(pathname: string): Promise<void> {
 }
 
 // ================================================================
+// GROWIのページID URLへの書き換えを待機する
+//
+// GROWI SPA の挙動:
+//   1. リンククリック → history.pushState で /path/a/b に遷移
+//   2. ごく短時間後  → history.replaceState で /xxxxxxxxxx (pageId) に書き換え
+//
+// pageId = MongoDB ObjectId = 24文字の16進数
+// pageId URLになってから API を叩く
+// ================================================================
+const PAGE_ID_PATTERN = /^\/[0-9a-f]{24}$/i;
+
+async function waitForPageId(maxWaitMs = 1500): Promise<string> {
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    const pathname = window.location.pathname;
+    if (PAGE_ID_PATTERN.test(pathname)) return pathname;
+    // 50ms ごとにポーリング
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  // タイムアウト：pageIdへの書き換えがなかった場合は現在のpathnameをそのまま返す
+  console.warn(`[${PLUGIN_NAME}] pageId URLへの書き換えをタイムアウト (${maxWaitMs}ms)`);
+  return window.location.pathname;
+}
+
+// ================================================================
 // SPA ナビゲーション（URL変化）の監視
 // Next.js ベースのGROWIはhistory APIでページを切り替えるため、
 // pushState / replaceState をラップして pathname の変化を検知する
 // ================================================================
-function watchUrlChanges(callback: (pathname: string) => void): () => void {
+function watchUrlChanges(callback: () => void): () => void {
   let currentPathname = window.location.pathname;
 
   const handleChange = () => {
     const next = window.location.pathname;
     if (next !== currentPathname) {
       currentPathname = next;
-      callback(next);
+      callback();
     }
   };
 
@@ -146,15 +173,18 @@ const activate = (): void => {
     return;
   }
 
-  // 初回ロード
+  // 初回ロード（初期表示時はすでにpageId URLのはずなので待機不要）
   updatePanel(window.location.pathname).catch(e => {
     console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
   });
 
   // SPA ページ遷移を監視
-  cleanupUrlWatch = watchUrlChanges(pathname => {
-    updatePanel(pathname).catch(e => {
-      console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
+  // URL変化を検知したら、pageId URLへの書き換えを待ってからパネル更新
+  cleanupUrlWatch = watchUrlChanges(() => {
+    waitForPageId().then(pathname => {
+      updatePanel(pathname).catch(e => {
+        console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
+      });
     });
   });
 };

@@ -17,9 +17,9 @@
   justify-content: space-between;
   padding: 0.45rem 0.6rem;
   border-radius: 6px 6px 0 0;
-  border: 1px solid var(--bs-btn-border-color);
+  border: 1px solid var(--bs-primary);
   background-color: var(--bs-primary-bg-subtle, #3b82f6);
-  color: var(--bs-primary-border-subtle);
+  color: var(--bs-primary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;

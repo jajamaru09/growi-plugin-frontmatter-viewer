@@ -122,19 +122,15 @@ async function fetchJson(url: string): Promise<unknown | null> {
 /**
  * 特定リビジョンの body を取得する
  *
- * API: GET /_api/v3/pages/{pageId}/revisions/{revisionId}
- * レスポンス: { revision: { body: string, ... } } または
- *             { data: { revision: { body: string, ... } } }
+ * API: GET /_api/v3/revisions/{revisionId}?pageId={pageId}
+ * レスポンス: { revision: { body: string, ... } }
  */
 async function fetchRevisionBody(pageId: string, revisionId: string): Promise<string | null> {
   for (const prefix of API_PREFIXES) {
-    const url = `${prefix}/pages/${encodeURIComponent(pageId)}/revisions/${encodeURIComponent(revisionId)}`;
+    const url = `${prefix}/revisions/${encodeURIComponent(revisionId)}?pageId=${encodeURIComponent(pageId)}`;
     try {
       const json = await fetchJson(url) as any;
-      const body: string =
-        json?.revision?.body ??
-        json?.data?.revision?.body ??
-        '';
+      const body: string = json?.revision?.body ?? '';
       if (body) return body;
     } catch (e) {
       console.warn(`[growi-plugin-frontmatter] revision API fetch failed (${url}):`, e);

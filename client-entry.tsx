@@ -6,30 +6,24 @@
  * activate() でサイドバーにフロントマターパネルを注入する。
  */
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, Root } from 'react-dom/client';
 import { FrontmatterPanel } from './FrontmatterPanel';
 import { fetchPageFrontmatter } from './parseFrontmatter';
 
 const PLUGIN_NAME = 'growi-plugin-frontmatter-viewer';
 const PANEL_MOUNT_ID = 'grw-frontmatter-panel-root';
 
-let cleanupFn: (() => void) | null = null;
+let root: Root | null = null;
+let mountTarget: HTMLElement | null = null;
+let cleanupUrlWatch: (() => void) | null = null;
 
 // ================================================================
 // サイドバーへのマウント先を探す / なければ作る
-//
-// GROWIのサイドバー構造（v6〜v7）:
-//   .page-wrapper
-//     .revision-toc-container  ← TOCが入るコンテナ (右サイドバー相当)
-//
-// ※ GROWIのDOMは版によって変わりうるため、複数のセレクタでフォールバック
 // ================================================================
 function findOrCreateMountTarget(): HTMLElement | null {
-  // 既存パネルがあれば再利用
   const existing = document.getElementById(PANEL_MOUNT_ID);
   if (existing) return existing;
 
-  // GROWIサイドバーの候補セレクタ（優先順）
   const SIDEBAR_SELECTORS = [
     '.revision-toc-container',
     '[class*="TableOfContents"]',
@@ -44,7 +38,6 @@ function findOrCreateMountTarget(): HTMLElement | null {
   }
 
   if (!sidebar) {
-    // フォールバック：body直下に固定サイドバーを作る
     console.warn(`[${PLUGIN_NAME}] サイドバーが見つからないため fixed パネルを作成します`);
     const fixed = document.createElement('div');
     fixed.style.cssText = `
@@ -58,36 +51,88 @@ function findOrCreateMountTarget(): HTMLElement | null {
   const wrapper = document.createElement('div');
   wrapper.id = PANEL_MOUNT_ID;
   wrapper.style.marginBottom = '12px';
-  sidebar.prepend(wrapper); // TOCより上に挿入
+  sidebar.prepend(wrapper);
 
   return wrapper;
 }
 
 // ================================================================
-// フロントマターを取得してパネルをマウントする
+// フロントマターを取得してパネルを更新する
+// ページ遷移のたびに呼び出す
 // ================================================================
-async function mountPanel() {
-  const target = findOrCreateMountTarget();
-  if (!target) return;
+async function updatePanel(pathname: string): Promise<void> {
+  // SPAナビゲーションでGROWIがDOMを再構築した場合、
+  // 挿入済み要素が消えていることがある → 再作成する
+  if (mountTarget && !document.contains(mountTarget)) {
+    mountTarget = null;
+    root = null;
+  }
 
-  // 現在のページパスで GROWI API を叩く
-  const pathname = window.location.pathname;
+  if (!mountTarget) {
+    mountTarget = findOrCreateMountTarget();
+    if (!mountTarget) return;
+  }
+
+  if (!root) {
+    root = createRoot(mountTarget);
+  }
+
   const parsed = await fetchPageFrontmatter(pathname);
+  const hasData = parsed != null && Object.keys(parsed.data).length > 0;
 
-  const root = createRoot(target);
+  if (!hasData) {
+    // フロントマターなし → コンテナを非表示にして終了
+    mountTarget.style.display = 'none';
+    return;
+  }
+
+  // フロントマターあり → コンテナを表示してレンダリング
+  mountTarget.style.display = '';
   root.render(
     <StrictMode>
       <FrontmatterPanel
-        rawYaml={parsed?.rawYaml ?? ''}
-        data={(parsed?.data ?? {}) as Record<string, never>}
+        rawYaml={parsed!.rawYaml}
+        data={parsed!.data as Record<string, never>}
       />
     </StrictMode>
   );
+}
 
-  // cleanup 用にunmount関数を保持
-  cleanupFn = () => {
-    root.unmount();
-    target.remove();
+// ================================================================
+// SPA ナビゲーション（URL変化）の監視
+// Next.js ベースのGROWIはhistory APIでページを切り替えるため、
+// pushState / replaceState をラップして pathname の変化を検知する
+// ================================================================
+function watchUrlChanges(callback: (pathname: string) => void): () => void {
+  let currentPathname = window.location.pathname;
+
+  const handleChange = () => {
+    const next = window.location.pathname;
+    if (next !== currentPathname) {
+      currentPathname = next;
+      callback(next);
+    }
+  };
+
+  const origPush = history.pushState.bind(history);
+  const origReplace = history.replaceState.bind(history);
+
+  history.pushState = function (...args) {
+    origPush(...args);
+    handleChange();
+  };
+
+  history.replaceState = function (...args) {
+    origReplace(...args);
+    handleChange();
+  };
+
+  window.addEventListener('popstate', handleChange);
+
+  return () => {
+    history.pushState = origPush;
+    history.replaceState = origReplace;
+    window.removeEventListener('popstate', handleChange);
   };
 }
 
@@ -95,23 +140,34 @@ async function mountPanel() {
 // activate / deactivate
 // ================================================================
 const activate = (): void => {
-  // GROWI コアが利用可能か確認
   const facade = (window as any).growiFacade;
   if (facade == null) {
     console.warn(`[${PLUGIN_NAME}] growiFacade が見つかりません`);
     return;
   }
 
-  mountPanel().catch(e => {
-    console.error(`[${PLUGIN_NAME}] mountPanel エラー:`, e);
+  // 初回ロード
+  updatePanel(window.location.pathname).catch(e => {
+    console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
+  });
+
+  // SPA ページ遷移を監視
+  cleanupUrlWatch = watchUrlChanges(pathname => {
+    updatePanel(pathname).catch(e => {
+      console.error(`[${PLUGIN_NAME}] updatePanel エラー:`, e);
+    });
   });
 };
 
 const deactivate = (): void => {
-  if (cleanupFn) {
-    cleanupFn();
-    cleanupFn = null;
-  }
+  cleanupUrlWatch?.();
+  cleanupUrlWatch = null;
+
+  root?.unmount();
+  root = null;
+
+  mountTarget?.remove();
+  mountTarget = null;
 };
 
 // ================================================================

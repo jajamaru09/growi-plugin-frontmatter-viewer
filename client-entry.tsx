@@ -38,14 +38,9 @@ function findOrCreateMountTarget(): HTMLElement | null {
   }
 
   if (!sidebar) {
-    console.warn(`[${PLUGIN_NAME}] サイドバーが見つからないため fixed パネルを作成します`);
-    const fixed = document.createElement('div');
-    fixed.style.cssText = `
-      position: fixed; top: 80px; right: 16px;
-      width: 240px; z-index: 1000;
-    `;
-    document.body.appendChild(fixed);
-    sidebar = fixed;
+    // サイドバーが見つからない場合はパネルを表示しない
+    // （fixed 固定パネルは GROWI の UI と競合するため使用しない）
+    return null;
   }
 
   const wrapper = document.createElement('div');
@@ -68,6 +63,18 @@ async function updatePanel(pathname: string): Promise<void> {
     return;
   }
 
+  // フロントマターを先に取得する
+  // → データがない場合はサイドバー探索・DOM生成を一切行わない
+  const revisionId = new URLSearchParams(window.location.search).get('revisionId') ?? undefined;
+  const parsed = await fetchPageFrontmatter(pathname, revisionId);
+
+  if (parsed == null || Object.keys(parsed.data).length === 0) {
+    // フロントマターなし → 既存パネルがあれば隠して終了
+    if (mountTarget) mountTarget.style.display = 'none';
+    return;
+  }
+
+  // フロントマターあり → ここで初めてサイドバーへの挿入を試みる
   // SPAナビゲーションでGROWIがDOMを再構築した場合、
   // 挿入済み要素が消えていることがある → 再作成する
   if (mountTarget && !document.contains(mountTarget)) {
@@ -77,25 +84,13 @@ async function updatePanel(pathname: string): Promise<void> {
 
   if (!mountTarget) {
     mountTarget = findOrCreateMountTarget();
-    if (!mountTarget) return;
+    if (!mountTarget) return; // サイドバーが見つからなければ表示しない
   }
 
   if (!root) {
     root = createRoot(mountTarget);
   }
 
-  // ?revisionId=<id> が付いていればそのリビジョンのフロントマターを取得する
-  const revisionId = new URLSearchParams(window.location.search).get('revisionId') ?? undefined;
-
-  const parsed = await fetchPageFrontmatter(pathname, revisionId);
-
-  if (parsed == null || Object.keys(parsed.data).length === 0) {
-    // フロントマターなし → コンテナを非表示にして終了
-    mountTarget.style.display = 'none';
-    return;
-  }
-
-  // フロントマターあり → コンテナを表示してレンダリング
   mountTarget.style.display = '';
   root.render(
     <StrictMode>

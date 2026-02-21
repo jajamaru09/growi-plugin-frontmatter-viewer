@@ -6,8 +6,13 @@
 // プラグインは GROWI REST API を叩いてページの生の body を取得し、
 // そこからフロントマターを抽出する。
 //
-// 本番API: GET /api/v3/page?path=<pathname>
-//   → レスポンスの pageData.revision.body に生 Markdown が入っている
+// 通常ページ: GET /_api/v3/page?pageId=<pageId>
+//   → json.page.revision.body または json.data.page.revision.body
+//
+// リビジョン指定: GET /_api/v3/revisions/<revisionId>?pageId=<pageId>
+//   → json.revision.body
+//
+// GROWI バージョンにより /_api/v3 と /api/v3 の両方を試みる
 // ================================================================
 
 export interface ParsedFrontmatter {

@@ -61,6 +61,13 @@ function findOrCreateMountTarget(): HTMLElement | null {
 // ページ遷移のたびに呼び出す
 // ================================================================
 async function updatePanel(pathname: string): Promise<void> {
+  // pageId URL でない場合（管理画面・検索画面等）はパネルを非表示にして終了
+  // pageId = MongoDB ObjectId = 24文字の16進数 (例: /6999390af17c96c558f7d57e)
+  if (!PAGE_ID_PATTERN.test(pathname)) {
+    if (mountTarget) mountTarget.style.display = 'none';
+    return;
+  }
+
   // SPAナビゲーションでGROWIがDOMを再構築した場合、
   // 挿入済み要素が消えていることがある → 再作成する
   if (mountTarget && !document.contains(mountTarget)) {
@@ -81,9 +88,8 @@ async function updatePanel(pathname: string): Promise<void> {
   const revisionId = new URLSearchParams(window.location.search).get('revisionId') ?? undefined;
 
   const parsed = await fetchPageFrontmatter(pathname, revisionId);
-  const hasData = parsed != null && Object.keys(parsed.data).length > 0;
 
-  if (!hasData) {
+  if (parsed == null || Object.keys(parsed.data).length === 0) {
     // フロントマターなし → コンテナを非表示にして終了
     mountTarget.style.display = 'none';
     return;
@@ -94,8 +100,8 @@ async function updatePanel(pathname: string): Promise<void> {
   root.render(
     <StrictMode>
       <FrontmatterPanel
-        rawYaml={parsed!.rawYaml}
-        data={parsed!.data as Record<string, never>}
+        rawYaml={parsed.rawYaml}
+        data={parsed.data}
       />
     </StrictMode>
   );

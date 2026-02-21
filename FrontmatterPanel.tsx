@@ -4,20 +4,17 @@ import './FrontmatterPanel.css';
 // ================================================================
 // 型定義
 // ================================================================
-type FrontmatterValue = string | number | boolean | string[] | Record<string, unknown>;
-type Frontmatter = Record<string, FrontmatterValue>;
-
 interface FrontmatterPanelProps {
   /** YAMLフロントマターの生文字列 (--- ... --- の中身) */
   rawYaml: string;
   /** パースされたオブジェクト */
-  data: Frontmatter;
+  data: Record<string, unknown>;
 }
 
 // ================================================================
 // 値のレンダリング：型に応じて見た目を変える
 // ================================================================
-function ValueCell({ value }: { value: FrontmatterValue }) {
+function ValueCell({ value }: { value: unknown }) {
   if (typeof value === 'boolean') {
     return (
       <span className={`grw-fm-value--boolean ${value ? '' : 'false'}`}>

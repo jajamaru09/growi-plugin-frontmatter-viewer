@@ -396,32 +396,52 @@ is_archived: false
   let currentScenario = 'full';
 
   // ============================================================
-  // GROWIのfetchPageFrontmatter()が叩く /api/v3/page をモック
-  // Service Workerは重いので fetch のモンキーパッチで代替
+  // GROWI REST API をモック（fetch モンキーパッチ）
+  //
+  // 対象エンドポイント:
+  //   GET /_api/v3/page?pageId=...          → 現在のリビジョン
+  //   GET /api/v3/page?pageId=...           → 旧バージョン互換
+  //   GET /_api/v3/revisions/:id?pageId=... → 特定リビジョン
+  //   GET /api/v3/revisions/:id?pageId=...  → 旧バージョン互換
   // ============================================================
   const originalFetch = window.fetch;
   window.fetch = function(url, ...args) {
-    if (typeof url === 'string' && url.startsWith('/api/v3/page')) {
-      // APIレスポンスをモック
+    if (typeof url !== 'string') return originalFetch.call(this, url, ...args);
+
+    const isPageApi     = /^\/_?api\/v3\/page\b/.test(url);
+    const isRevisionApi = /^\/_?api\/v3\/revisions\//.test(url);
+
+    if (isPageApi) {
       const body = SCENARIOS[currentScenario] || '';
       const mockBody = body
         ? body + '\n\n# PackMaster-3000 操作マニュアル\n\n本文...'
         : '# フロントマターなし\n\n本文...';
 
-      const mockResponse = {
+      console.log(`[MOCK API] GET ${url} → シナリオ: ${currentScenario}`);
+      return Promise.resolve({
         ok: true,
         status: 200,
-        json: async () => ({
-          data: {
-            page: {
-              revision: { body: mockBody }
-            }
-          }
-        })
-      };
-      console.log(`[MOCK API] GET ${url} → シナリオ: ${currentScenario}`);
-      return Promise.resolve(mockResponse);
+        headers: { get: () => 'application/json' },
+        json: async () => ({ data: { page: { revision: { body: mockBody } } } }),
+      });
     }
+
+    if (isRevisionApi) {
+      // URLから revisionId を取り出す（デモ用に現在のシナリオを返す）
+      const body = SCENARIOS[currentScenario] || '';
+      const mockBody = body
+        ? body + '\n\n# PackMaster-3000 操作マニュアル\n\n本文...'
+        : '# フロントマターなし\n\n本文...';
+
+      console.log(`[MOCK API] GET ${url} → リビジョンモック (シナリオ: ${currentScenario})`);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ revision: { body: mockBody } }),
+      });
+    }
+
     return originalFetch.call(this, url, ...args);
   };
 

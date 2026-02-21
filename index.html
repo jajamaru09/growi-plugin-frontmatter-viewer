@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>【モック】GROWI フロントマタービューワー開発環境</title>
+
+  <!-- Bootstrap 5 (GROWIが使用しているものと同バージョン系) -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
+  />
+
+  <style>
+    /* ============================================================
+       GROWI ページレイアウトの再現
+       実際のGROWIのCSSクラス名を使って本番と同じ構造を作る
+       ============================================================ */
+
+    :root {
+      --grw-sidebar-width: 250px;
+      --grw-toc-width: 220px;
+      --grw-header-height: 56px;
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+      background: #f8f9fa;
+    }
+
+    /* ---- ヘッダー ---- */
+    .grw-header-mock {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--grw-header-height);
+      background: #1a1a2e;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
+      z-index: 1050;
+      gap: 1rem;
+    }
+
+    .grw-header-mock .logo {
+      font-weight: 800;
+      font-size: 1.2rem;
+      letter-spacing: -0.03em;
+      color: #4fc3f7;
+    }
+
+    .grw-header-mock .path {
+      font-size: 0.82rem;
+      color: #aaa;
+      font-family: 'Consolas', monospace;
+    }
+
+    .grw-header-mock .dev-badge {
+      margin-left: auto;
+      font-size: 0.68rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      background: #ff6b35;
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      animation: blink 2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* ---- レイアウト ---- */
+    .grw-layout {
+      display: grid;
+      grid-template-columns: var(--grw-sidebar-width) 1fr var(--grw-toc-width);
+      grid-template-rows: var(--grw-header-height) 1fr;
+      min-height: 100vh;
+      gap: 0;
+    }
+
+    /* ---- 左サイドバー（ナビ） ---- */
+    .grw-left-sidebar {
+      grid-column: 1;
+      grid-row: 1 / 3;
+      background: #fff;
+      border-right: 1px solid #dee2e6;
+      padding-top: calc(var(--grw-header-height) + 1rem);
+      position: fixed;
+      top: 0; left: 0;
+      width: var(--grw-sidebar-width);
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .grw-sidebar-nav {
+      list-style: none;
+      padding: 0 0.5rem;
+      margin: 0;
+    }
+
+    .grw-sidebar-nav li a {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.75rem;
+      color: #495057;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      transition: background 0.12s;
+    }
+
+    .grw-sidebar-nav li a:hover,
+    .grw-sidebar-nav li a.active {
+      background: #e9ecef;
+      color: #212529;
+    }
+
+    .grw-sidebar-nav .nav-icon { font-size: 1rem; }
+
+    /* ---- メインコンテンツ ---- */
+    .grw-main {
+      grid-column: 2;
+      grid-row: 2;
+      margin-left: var(--grw-sidebar-width);
+      margin-right: var(--grw-toc-width);
+      padding: calc(var(--grw-header-height) + 2rem) 2rem 3rem;
+      min-width: 0;
+    }
+
+    /* ---- 右サイドバー（TOC + プラグインパネルが入るエリア） ---- */
+    .revision-toc-container {
+      position: fixed;
+      top: calc(var(--grw-header-height) + 1rem);
+      right: 0;
+      width: var(--grw-toc-width);
+      height: calc(100vh - var(--grw-header-height) - 1rem);
+      overflow-y: auto;
+      padding: 0.5rem 0.75rem;
+      background: #fff;
+      border-left: 1px solid #dee2e6;
+    }
+
+    .toc-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .toc-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1rem;
+    }
+
+    .toc-list li a {
+      display: block;
+      font-size: 0.78rem;
+      color: #6c757d;
+      text-decoration: none;
+      padding: 0.18rem 0;
+      padding-left: calc(var(--indent, 0) * 0.8rem);
+      transition: color 0.1s;
+    }
+
+    .toc-list li a:hover { color: #0d6efd; }
+
+    /* ---- Markdown コンテンツ ---- */
+    .wiki-content h1 { font-size: 1.8rem; font-weight: 700; padding-bottom: 0.5rem; border-bottom: 2px solid #dee2e6; margin-bottom: 1.5rem; }
+    .wiki-content h2 { font-size: 1.35rem; font-weight: 600; margin-top: 2rem; padding-bottom: 0.3rem; border-bottom: 1px solid #dee2e6; }
+    .wiki-content h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; }
+    .wiki-content p  { line-height: 1.8; margin-bottom: 1rem; }
+    .wiki-content code { background: #f1f3f5; padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+    .wiki-content pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; }
+    .wiki-content pre code { background: none; color: inherit; padding: 0; }
+
+    /* ---- ページメタ情報 ---- */
+    .page-meta {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.78rem;
+      color: #6c757d;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .page-meta span { display: flex; align-items: center; gap: 0.3rem; }
+
+    /* ---- デバッグパネル ---- */
+    .debug-panel {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: 8px;
+      font-family: 'Consolas', 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+    }
+
+    .debug-panel h6 {
+      color: #89dceb;
+      margin-bottom: 0.75rem;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .debug-control {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .debug-control button {
+      padding: 0.3rem 0.75rem;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid #45475a;
+      background: #313244;
+      color: #cdd6f4;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .debug-control button:hover {
+      background: #585b70;
+      border-color: #cba6f7;
+    }
+
+    .debug-control button.active {
+      background: #cba6f7;
+      color: #1e1e2e;
+      border-color: #cba6f7;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     ヘッダー
+     ============================================================ -->
+<header class="grw-header-mock">
+  <span class="logo">🔗 GROWI</span>
+  <span class="path" id="header-path">/製品マニュアル/梱包機/PackMaster-3000</span>
+  <span class="dev-badge">🔧 PLUGIN DEV MODE</span>
+</header>
+
+<!-- ============================================================
+     左サイドバー
+     ============================================================ -->
+<nav class="grw-left-sidebar">
+  <ul class="grw-sidebar-nav">
+    <li><a href="#" class="active"><span class="nav-icon">🏠</span> ホーム</a></li>
+    <li><a href="#"><span class="nav-icon">📁</span> 製品マニュアル</a></li>
+    <li><a href="#"><span class="nav-icon">🔍</span> 検索</a></li>
+    <li><a href="#"><span class="nav-icon">⭐</span> ブックマーク</a></li>
+    <li><a href="#"><span class="nav-icon">🕐</span> 最近の更新</a></li>
+    <hr style="margin: 0.5rem 0.75rem; border-color: #dee2e6" />
+    <li><a href="#"><span class="nav-icon">⚙️</span> 管理画面</a></li>
+  </ul>
+</nav>
+
+<!-- ============================================================
+     右サイドバー（TOC + ← ここにプラグインパネルが入る）
+     ============================================================ -->
+<aside class="revision-toc-container" id="revision-toc-container">
+  <!-- ↓ プラグインパネルはこのコンテナの先頭に prepend される -->
+
+  <div class="toc-label">目次</div>
+  <ul class="toc-list">
+    <li style="--indent:0"><a href="#">概要</a></li>
+    <li style="--indent:0"><a href="#">仕様</a></li>
+    <li style="--indent:1"><a href="#">処理能力</a></li>
+    <li style="--indent:1"><a href="#">寸法・重量</a></li>
+    <li style="--indent:0"><a href="#">操作手順</a></li>
+    <li style="--indent:1"><a href="#">起動</a></li>
+    <li style="--indent:1"><a href="#">停止</a></li>
+    <li style="--indent:0"><a href="#">メンテナンス</a></li>
+  </ul>
+</aside>
+
+<!-- ============================================================
+     メインコンテンツ（GROWIの閲覧ページ本文）
+     ============================================================ -->
+<main class="grw-main">
+
+  <!-- ページメタ情報 -->
+  <div class="page-meta">
+    <span>📅 更新: 2025-11-15</span>
+    <span>👤 田中 太郎</span>
+    <span>📂 /製品マニュアル/梱包機</span>
+  </div>
+
+  <!-- Markdownレンダリング結果（フロントマターは除去されている） -->
+  <div class="wiki-content" id="wiki-body">
+    <h1>PackMaster-3000 操作マニュアル</h1>
+
+    <h2>概要</h2>
+    <p>PackMaster-3000 は自動横型ピロー包装機です。高速かつ安定した包装処理を実現し、
+    食品・工業部品・医療機器など幅広い製品に対応します。</p>
+
+    <h2>仕様</h2>
+    <h3>処理能力</h3>
+    <p>最大処理速度: 120包/分（製品形状・フィルムにより変動）</p>
+
+    <h3>寸法・重量</h3>
+    <p>本体寸法: W1,200 × D800 × H1,400mm<br>
+    重量: 約580kg</p>
+
+    <h2>操作手順</h2>
+    <h3>起動</h3>
+    <p>電源投入後、操作パネルの <code>POWER</code> ボタンを押し、ウォームアップ完了まで
+    約3分待機してください。</p>
+
+    <pre><code>// 緊急停止コード
+ESTOP → 赤ボタン長押し 2秒
+復帰  → RESET → START</code></pre>
+
+    <h3>停止</h3>
+    <p>通常停止は <code>STOP</code> ボタンを押してください。フィルム送りが完了してから停止します。</p>
+
+    <h2>メンテナンス</h2>
+    <p>日常点検はシフト開始前に実施してください。詳細は保守点検チェックシートを参照。</p>
+  </div>
+
+  <!-- ============================================================
+       デバッグパネル（開発専用：フロントマターのデータを切り替え）
+       ============================================================ -->
+  <div class="debug-panel">
+    <h6>🔧 デバッグ: フロントマター内容を切り替え</h6>
+    <div class="debug-control">
+      <button class="active" onclick="setScenario('full')">製品ページ（フル）</button>
+      <button onclick="setScenario('minimal')">最小限</button>
+      <button onclick="setScenario('array')">配列あり</button>
+      <button onclick="setScenario('empty')">フロントマターなし</button>
+    </div>
+    <div id="debug-yaml-preview" style="white-space:pre;color:#a6e3a1;">Loading...</div>
+  </div>
+
+</main>
+
+<!-- ============================================================
+     GROWI APIモック + プラグイン起動スクリプト
+     ============================================================ -->
+<script>
+  // ============================================================
+  // シナリオ定義：開発中に切り替えて動作確認するモックデータ
+  // ============================================================
+  const SCENARIOS = {
+    full: `---
+title: PackMaster-3000 操作マニュアル
+category: 梱包機
+model: PM-3000
+status: 公開中
+version: 3.2
+author: 田中 太郎
+reviewer: 山田 花子
+published: true
+tags:
+  - 梱包機
+  - ピロー包装
+  - 自動化
+language: ja
+last_reviewed: 2025-11-01
+---`,
+
+    minimal: `---
+title: PackMaster-3000
+status: 草稿
+---`,
+
+    array: `---
+tags: [梱包機, ピロー包装, 食品対応, CE認証取得済み]
+compatible_products:
+  - PM-3000-A
+  - PM-3000-B
+  - PM-3000-C
+revisions: 12
+is_archived: false
+---`,
+
+    empty: '' // フロントマターなし
+  };
+
+  let currentScenario = 'full';
+
+  // ============================================================
+  // GROWIのfetchPageFrontmatter()が叩く /api/v3/page をモック
+  // Service Workerは重いので fetch のモンキーパッチで代替
+  // ============================================================
+  const originalFetch = window.fetch;
+  window.fetch = function(url, ...args) {
+    if (typeof url === 'string' && url.startsWith('/api/v3/page')) {
+      // APIレスポンスをモック
+      const body = SCENARIOS[currentScenario] || '';
+      const mockBody = body
+        ? body + '\n\n# PackMaster-3000 操作マニュアル\n\n本文...'
+        : '# フロントマターなし\n\n本文...';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            page: {
+              revision: { body: mockBody }
+            }
+          }
+        })
+      };
+      console.log(`[MOCK API] GET ${url} → シナリオ: ${currentScenario}`);
+      return Promise.resolve(mockResponse);
+    }
+    return originalFetch.call(this, url, ...args);
+  };
+
+  // ============================================================
+  // growiFacade モック（GROWI コアのAPI）
+  // ============================================================
+  window.growiFacade = {
+    version: '7.0.0-mock',
+    markdownRenderer: { isReady: true },
+  };
+
+  window.pluginActivators = {};
+
+  // ============================================================
+  // シナリオ切り替え関数
+  // ============================================================
+  function setScenario(name) {
+    currentScenario = name;
+
+    // ボタン状態更新
+    document.querySelectorAll('.debug-control button').forEach(btn => {
+      btn.classList.toggle('active', btn.textContent.includes(
+        { full: 'フル', minimal: '最小限', array: '配列', empty: 'なし' }[name]
+      ));
+    });
+
+    // YAMLプレビュー更新
+    const yaml = SCENARIOS[name];
+    document.getElementById('debug-yaml-preview').textContent =
+      yaml ? yaml : '(フロントマターなし)';
+
+    // プラグインを再マウント
+    const existing = document.getElementById('grw-frontmatter-panel-root');
+    if (existing) existing.remove();
+
+    if (window.pluginActivators['growi-plugin-frontmatter-viewer']) {
+      window.pluginActivators['growi-plugin-frontmatter-viewer'].activate();
+    }
+  }
+
+  // ============================================================
+  // 初期表示
+  // ============================================================
+  document.getElementById('debug-yaml-preview').textContent = SCENARIOS['full'];
+</script>
+
+<!-- Vite のエントリーポイント（HMR対象） -->
+<script type="module" src="/client-entry.tsx"></script>
+
+<script>
+  // プラグイン登録後に activate() を呼ぶ
+  // (client-entry.tsx が window.pluginActivators に登録完了したタイミングで実行)
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const activator = window.pluginActivators?.['growi-plugin-frontmatter-viewer'];
+      if (activator) {
+        activator.activate();
+      } else {
+        console.error('プラグインが登録されていません。client-entry.tsx を確認してください。');
+      }
+    }, 100); // Reactのマウントを待つ
+  });
+</script>
+
+</body>
+</html>

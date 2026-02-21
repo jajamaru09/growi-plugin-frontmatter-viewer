@@ -1,0 +1,199 @@
+/* ================================================================
+   growi-plugin-frontmatter-viewer
+   GROWIのサイドバーに溶け込むデザイン
+   Bootstrap変数を使って本番環境でもテーマに追従する
+   ================================================================ */
+
+.grw-frontmatter-panel {
+  position: relative;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* ---- パネルヘッダー ---- */
+.grw-frontmatter-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px 6px 0 0;
+  background: var(--bs-primary, #3b82f6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+  cursor: pointer;
+  gap: 0.4rem;
+}
+
+.grw-frontmatter-panel__header-icon {
+  opacity: 0.85;
+  font-size: 0.9rem;
+}
+
+.grw-frontmatter-panel__title {
+  flex: 1;
+}
+
+.grw-frontmatter-panel__toggle {
+  font-size: 0.65rem;
+  opacity: 0.75;
+  transition: transform 0.2s ease;
+}
+
+.grw-frontmatter-panel__toggle--open {
+  transform: rotate(180deg);
+}
+
+/* ---- パネル本体 ---- */
+.grw-frontmatter-panel__body {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  background: var(--bs-body-bg, #fff);
+  overflow: hidden;
+  animation: grw-fm-slide-down 0.18s ease;
+}
+
+@keyframes grw-fm-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- フロントマターが無いとき ---- */
+.grw-frontmatter-panel__empty {
+  padding: 0.75rem 0.8rem;
+  color: var(--bs-secondary, #6c757d);
+  font-style: italic;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+/* ---- テーブル ---- */
+.grw-frontmatter-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.grw-frontmatter-panel__table tr {
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.grw-frontmatter-panel__table tr:last-child {
+  border-bottom: none;
+}
+
+.grw-frontmatter-panel__table th {
+  width: 38%;
+  padding: 0.38rem 0.7rem;
+  font-weight: 600;
+  color: var(--bs-secondary, #6c757d);
+  font-size: 0.75rem;
+  vertical-align: top;
+  word-break: break-all;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+.grw-frontmatter-panel__table td {
+  padding: 0.38rem 0.7rem;
+  color: var(--bs-body-color, #212529);
+  font-size: 0.8rem;
+  vertical-align: top;
+  word-break: break-all;
+}
+
+/* ---- 値の型別スタイル ---- */
+.grw-fm-value--boolean {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--bs-success, #198754);
+  font-weight: 600;
+}
+
+.grw-fm-value--boolean.false {
+  color: var(--bs-danger, #dc3545);
+}
+
+.grw-fm-value--number {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  color: var(--bs-info, #0dcaf0);
+}
+
+.grw-fm-value--array {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.grw-fm-value--array-item {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 20px;
+  background: var(--bs-primary-bg-subtle, #cfe2ff);
+  color: var(--bs-primary-text-emphasis, #052c65);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.grw-fm-value--object {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.72rem;
+  color: var(--bs-secondary, #6c757d);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.grw-fm-value--string {
+  color: var(--bs-body-color, #212529);
+}
+
+/* ---- YAML rawビュー ---- */
+.grw-frontmatter-panel__raw {
+  padding: 0.6rem 0.75rem;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.73rem;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+  color: var(--bs-body-color, #212529);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+/* ---- RAWトグルボタン ---- */
+.grw-frontmatter-panel__raw-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.3rem 0.6rem;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  gap: 0.3rem;
+}
+
+.grw-frontmatter-panel__raw-btn {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--bs-secondary, #6c757d);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.grw-frontmatter-panel__raw-btn:hover {
+  background: var(--bs-secondary, #6c757d);
+  color: #fff;
+}
+
+.grw-frontmatter-panel__raw-btn--active {
+  background: var(--bs-secondary, #6c757d);
+  color: #fff;
+}

@@ -14,6 +14,11 @@ interface FrontmatterPanelProps {
 // ================================================================
 // 値のレンダリング：型に応じて見た目を変える
 // ================================================================
+
+function isUrl(s: string): boolean {
+  return /^https?:\/\/.+/.test(s);
+}
+
 function ValueCell({ value }: { value: unknown }) {
   if (typeof value === 'boolean') {
     return (
@@ -30,11 +35,16 @@ function ValueCell({ value }: { value: unknown }) {
   if (Array.isArray(value)) {
     return (
       <ul className="grw-fm-value--array">
-        {value.map((item, i) => (
-          <li key={i} className="grw-fm-value--array-item">
-            {String(item)}
-          </li>
-        ))}
+        {value.map((item, i) => {
+          const s = String(item);
+          return (
+            <li key={i} className="grw-fm-value--array-item">
+              {isUrl(s)
+                ? <a href={s} target="_blank" rel="noopener noreferrer" className="grw-fm-value--link">{s}</a>
+                : s}
+            </li>
+          );
+        })}
       </ul>
     );
   }
@@ -44,6 +54,14 @@ function ValueCell({ value }: { value: unknown }) {
       <span className="grw-fm-value--object">
         {JSON.stringify(value, null, 2)}
       </span>
+    );
+  }
+
+  if (typeof value === 'string' && isUrl(value)) {
+    return (
+      <a href={value} target="_blank" rel="noopener noreferrer" className="grw-fm-value--link">
+        {value}
+      </a>
     );
   }
 

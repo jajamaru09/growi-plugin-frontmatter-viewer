@@ -151,6 +151,16 @@
   color: var(--bs-body-color, #212529);
 }
 
+.grw-fm-value--link {
+  color: var(--bs-link-color, #0d6efd);
+  word-break: break-all;
+  text-decoration: none;
+}
+
+.grw-fm-value--link:hover {
+  text-decoration: underline;
+}
+
 /* ---- YAML rawビュー ---- */
 .grw-frontmatter-panel__raw {
   padding: 0.6rem 0.75rem;
